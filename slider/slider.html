@@ -1,0 +1,56 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <title>Slider</title>
+	<style>
+		.motionSenstive{
+			float: left;
+			margin-top:5px;
+			font-size:14px;
+			width:70px;
+			overflow:hidden;
+			display: inline-block;
+		}	
+
+	</style>
+	<script src="jquery.js"></script>
+    <script src="dragLine_new.js"></script>
+  </head>
+  <body>
+    <input type="hidden" name="MSensitivity1" id="jsMotion1Sens" value='12' />
+	<div>
+    <div style="width:300px;">
+		<label class="motionSenstive" id="jsMotion1SensLab">灵敏度:&nbsp;</label>
+		<div class="slider" id="jsSens1"></div>
+    </div>
+	</div>
+	<br/>
+	<div style="width:300px;">
+		<label class="motionSenstive" id="jsMotion2SensLab">灵敏度:&nbsp;</label>
+		<div class="slider" id="jsSens2"></div>
+    </div>
+    <script type="text/javascript">
+		var DragObj = new Slider();
+		DragObj.creat({
+			divID:"jsSens1",
+			textChange:true,
+			dataName:"jsSenslabel1",
+			Nmin:10,
+			Nmax:100,
+			defaultValue:60,
+			type:"Slider"
+		});
+		
+		DragObj.creat({
+			divID:"jsSens2",
+			textChange:false,
+			dataName:"jsSenslabel2",
+			Nmin:100,
+			Nmax:3000,
+			step:500,
+			defaultValue:1002,
+			type:"Slider-Slope",
+		});
+    </script>
+  </body>
+</html>
