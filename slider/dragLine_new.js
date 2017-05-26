@@ -39,7 +39,7 @@ Slider.prototype = {
 		}
 	},
 	/************************/
-	value : function(divID,value){
+	value : function(divID,value,flag){
 		var value = parseInt(value);
 		var length = this.sliderArray.length;
 		var obj, temp;
@@ -56,8 +56,37 @@ Slider.prototype = {
 			}
 			value = value<obj.Nmin? obj.Nmin: value;
 			value = value>obj.Nmax? obj.Nmax: value;
-			obj.value = value;
 			var pos = parseInt( (value-obj.Nmin)*obj.sliderRge/(obj.Nmax-obj.Nmin) );//移动距离
+			//console.log(value)
+			//console.log(obj.sliderRge)
+			//console.log(pos);
+			if(obj.type=="Slider-BreakPoint")
+			{
+				for(var i=0;i<obj.rangeArray.length;i++)
+				{
+						if(flag==1)
+						{
+							if(pos>=obj.rangeArray[i]&&pos<=obj.rangeArray[i+1])
+							{
+								pos=obj.rangeArray[i+1];
+								value=obj.dataArray[i+1];
+								break;
+							}
+						}
+						else if(flag==0)
+						{
+							if(pos>=obj.rangeArray[i]&&pos<obj.rangeArray[i+1])
+							{
+								pos=obj.rangeArray[i];
+								value=obj.dataArray[i];
+								break;
+							}
+						}
+						else{
+							break;
+						}
+				}
+			}
 			temp = obj.slider.style.display;
 			obj.slider.style.display="inline";
 			obj.slider.style.left= 18+pos+"px";
@@ -70,6 +99,7 @@ Slider.prototype = {
 			obj.inputObj.val(value);
 			obj.passObj.val(value);
 			obj.labelObj.text(value);
+			obj.value = value;
 		}
 	},
 	/************************/
@@ -78,19 +108,57 @@ Slider.prototype = {
 			var rgeMax = obj.sliderRge;
 			offset = offset<0? 0: offset;
 			offset = offset>rgeMax? rgeMax: offset;
+			
 			obj.slider.style.left= offset+18+"px";
 			obj.front.style.width = offset+obj.offset+"px";
 			var value = Math.round(offset*obj.step) + obj.Nmin;
-			obj.value = value;
 			//value =targetObj.Nmax + targetObj.Nmin -value; //调转大小头
-			setTimeout(function(){
-			obj.inputObj.val(value);
-			obj.passObj.val(value);
-			},10);
-			obj.labelObj.text(value);
+			if(obj.type!="Slider-BreakPoint")
+			{
+				obj.value = value;
+				obj.inputObj.val(value);
+				obj.passObj.val(value);
+				obj.labelObj.text(value);
+			}
 			return obj.value;
 		},
 		
+	/************************/
+	sliderUp : function(obj, ev){
+			var offset = ev.pageX - obj.line.offset().left;
+			var rgeMax = obj.sliderRge;
+			offset = offset<0? 0: offset;
+			offset = offset>rgeMax? rgeMax: offset;
+			var value = Math.round(offset*obj.step) + obj.Nmin;
+			var value;
+			for(var i=0;i<obj.dataArray.length;i++){
+				if(obj.value==obj.dataArray[i])
+					break;
+			}
+			if(offset<obj.rangeArray[i]){
+				offset=obj.rangeArray[i-1];
+				value=obj.dataArray[i-1];
+			}
+			else if(offset>obj.rangeArray[i]){
+				offset=obj.rangeArray[i+1];
+				value=obj.dataArray[i+1];
+			}
+			else{
+				offset=obj.rangeArray[i];
+				value=obj.dataArray[i];
+			}
+
+			obj.slider.style.left= offset+18+"px";
+			obj.front.style.width = offset+obj.offset+"px";
+			
+			setTimeout(function(){
+				obj.value = value;
+				obj.inputObj.val(value);
+				obj.passObj.val(value);
+				obj.labelObj.text(value);
+			},10)
+	},
+	
 	creat: function(obj){
 		//解析对象
 		var divID=obj.divID;
@@ -102,10 +170,20 @@ Slider.prototype = {
 		var hander=obj.hander;
 		var defaultValue=obj.defaultValue||Nmin;
 		var type=obj.type;
+		var dataArray=obj.dataArray;
+		var state=obj.state
+		
+		//断点式
+		if(type=="Slider-BreakPoint")
+		{
+			Nmin=dataArray[0];
+			Nmax=dataArray[dataArray.length-1];
+		}
 		
 		if(typeof obj.divID == "undefined"){
 			throw new Error("Please check the target id!");
 		}
+		
 		//图片初始化
 		this.imgSet(type);
 	
@@ -163,7 +241,7 @@ Slider.prototype = {
 										"cursor:pointer;"+
 										"z-index:2;"+
 										"'/>");
-
+		
 		//显示的滑动块，我们可以看见的，能够用手拖动
 		var imgSlider = document.createElement("img");
 		$.extend(imgSlider.style, {
@@ -178,14 +256,13 @@ Slider.prototype = {
 		imgSlider.src=this.imgSlider.src;
 		
 		//整个容器
-		var container = $('<div '+
-							'style="width:100%;'+
-							'overflow:hidden;'+
-							'height:30px;'+
-							'border:0;'+
-							'padding:0;'+
-							'position:relative"'+
-							'></div>');
+		var container = $('<div style="width:100%;'+
+									  'overflow:hidden;'+
+									  'height:30px;'+
+									  'border:0;'+
+									  'padding:0;'+
+									  'position:relative"'+
+									  '></div>');
 		//滑动条有效区域
 		var background = $('<div style="overflow:hidden;'+
 										"position:absolute;"+
@@ -228,46 +305,47 @@ Slider.prototype = {
 		$.extend(labelMax.style, {
 									overflow:'hidden',
 									position:'absolute',
-									left:'100px',
 									top:'14px'
 								 });
 		
 		
+
 		var labelHidden=textChange==true?"none":"";
 		var inputHidden=textChange==true?"":"none";
+		
 		//显示数据
 		var labelData = document.createElement("label");
 		var defaultData = document.createTextNode(defaultValue);
 		labelData.appendChild(defaultData);
 		$(labelData).css({
-			'float': 'left',
-			'font-size':'14px',
-			'display': 'inline',
-			'margin-left': '0',
-			'margin-top': '4px',
-			'margin-right': '5px',
-			'width': '38px',
-			'display':'inline-block',
-			'overflow':'hidden',
-			'padding':'0',
-			'display':labelHidden
-		})
+					'float': 'left',
+					'font-size':'14px',
+					'display': 'inline',
+					'margin-left': '0',
+					'margin-top': '4px',
+					'margin-right': '5px',
+					'width': '38px',
+					'display':'inline-block',
+					'overflow':'hidden',
+					'padding':'0',
+					'display':labelHidden
+					})
 		
 		//修改数据
 		var inputData = document.createElement("input");
 		$(inputData).css({
-			'float': 'left',
-			'font-size':'14px',
-			'display': 'inline',
-			'margin-left': '0',
-			'margin-top': '4px',
-			'margin-right': '5px',
-			'width': '38px',
-			'display':'inline-block',
-			'overflow':'hidden',
-			'padding':'0',
-			'display':inputHidden
-		})
+					'float': 'left',
+					'font-size':'14px',
+					'display': 'inline',
+					'margin-left': '0',
+					'margin-top': '4px',
+					'margin-right': '5px',
+					'width': '38px',
+					'display':'inline-block',
+					'overflow':'hidden',
+					'padding':'0',
+					'display':inputHidden
+					})
 		$(inputData).prop("maxLength",Nmax.toString().length)
 		
 		//传递数据，由于input被灰掉后无法传值，所以加一个hidden进行传值
@@ -290,12 +368,39 @@ Slider.prototype = {
 		}
 		
 
+		
 		imgPlus.css("left",wrappWidth - imgPlus.width() + "px");
 		//加减号和滑动条之间的空白距离为8
 		centerWidth = parseInt(wrappWidth) - 2*parseInt(imgPlus.css("width").replace(/\D/g,'')) - 8;
 		blankClick .css("width", centerWidth+"px");
 		background.css("width", centerWidth+"px");
+		$(labelMax).css("left",centerWidth+10+"px");//动态决定最大标签的位置，因为滑动条宽度可变
 		sliderWidth = imgSlider.style.width.replace(/\D/g,'');
+		
+		/*断点式滑动条*/
+		if(type=="Slider-BreakPoint")
+		{
+			var oneWidth=(centerWidth - sliderWidth+8)/(dataArray[dataArray.length-1]-dataArray[0])
+			var rangeArray=new Array();
+			var breakPonitDiv=new Array();
+			for(var i=0;i<dataArray.length;i++)
+			{
+				rangeArray[i]=oneWidth*(dataArray[i]-dataArray[0]);
+				breakPonitDiv[i]=document.createElement("div");
+				var left=rangeArray[i]+22
+				$(breakPonitDiv[i]).css({
+									"width":"2px",
+									"left":left+"px",
+									"height":"6px",
+									"position":'absolute',
+									"top":'7px',
+									"zIndex":'1',
+									"background-color":"#888"
+				})
+				container.prepend(breakPonitDiv[i]);
+			}
+		}
+		/*end*/
 		
 		container.prepend(imgMinus);
 		container.prepend(imgPlus);
@@ -312,9 +417,12 @@ Slider.prototype = {
 		targetDiv.before(passData);
 		targetDiv.contextmenu(function(){return false});//防止右键出现菜单
 		
+		
+
 		var inputObj = $(inputData);
 		var labelObj = $(labelData);
 		var passObj = $(passData);
+		
 		var Nmin = Nmin? Nmin: 0;
 		var Nmax = Nmax? Nmax: 100;
 		if(Nmin==Nmax){Nmax=Nmax+1};
@@ -323,6 +431,7 @@ Slider.prototype = {
 
 		var dragObj = {
 			divID: divID,
+			type:type,
 			Nmin: Nmin,
 			Nmax: Nmax,
 			value: Nmin,
@@ -340,7 +449,9 @@ Slider.prototype = {
 			step: ((Nmax - Nmin)/(centerWidth - sliderWidth+8)).toFixed(5),//每一步走多远
 			offset: parseInt(sliderWidth/2),
 			hander: ( "function"==(typeof hander) )? hander: function(){},
-			enable: true
+			enable: true,
+			rangeArray:rangeArray,
+			dataArray:dataArray
 		};
 		
 		//将对象放入数组中
@@ -355,9 +466,15 @@ Slider.prototype = {
 		//condition为当前这个对象
 		//temp为当前这个滑动条创造出来用来存放自己属性的对象
 		
+		/*默认值初始化*/
 		if(defaultValue>0)
 		{
 			this.value(divID,defaultValue)
+		}
+		/*状态初始化*/
+		if(state==false)
+		{
+			this.state(divID,false);
 		}
 		//减号按钮事件
 		$(temp.minus).mousedown(function(ev) {
@@ -371,7 +488,7 @@ Slider.prototype = {
 				ev.preventDefault();
 				timeout = 500;
 			};
-			condition.value(temp.divID, value-clickStep);
+			condition.value(temp.divID, value-clickStep,0);
 			temp.hander(temp.value);
 			
 			//可以做连续动作
@@ -389,7 +506,7 @@ Slider.prototype = {
 			if( "object"==(typeof ev) ){
 				ev.preventDefault(); timeout = 500;
 			};
-            condition.value(temp.divID, value+clickStep);
+            condition.value(temp.divID, value+clickStep,1);
 			temp.hander(temp.value);
 			condition.timeout = setTimeout(
 			arguments.callee, timeout
@@ -427,21 +544,8 @@ Slider.prototype = {
 			ev.preventDefault();
 			condition.sliderMove(temp, ev);
 			temp.hander(temp.value);
-        	});
-		$(temp.line).mouseup(function(ev){condition.target = null;});
-		$(temp.line).mousemove(function(ev){
-			if(condition.target != temp ){
-				ev.preventDefault();
-				return;
-			}
-			clearTimeout(condition.dragID);
-			condition.dragID = setTimeout(function(){
-				var valueLast = temp.value;
-				if(valueLast != condition.sliderMove(temp, ev)){
-					temp.hander(temp.value);
-				};},0);
-			return false;
-		});
+        });
+		
 		
 		//拖动滑动块
 		$(temp.slider).mousedown(function(ev){
@@ -450,23 +554,37 @@ Slider.prototype = {
 			ev.preventDefault();
 			condition.sliderMove(temp, ev);
 			temp.hander(temp.value);
-        	});
-		$(temp.slider).mouseup(function(ev){condition.target = null;});
-		$(temp.slider).mousemove(function(ev){
-			if( condition.target != temp ){
-				ev.preventDefault();
-				return;
+			
+			$(this).mousemove(function(ev){
+				if( condition.target != temp ){
+					ev.preventDefault();
+					return;
+				}
+				clearTimeout(condition.dragID);
+				condition.dragID = setTimeout(function(){
+					var valueLast = temp.value;
+					if(valueLast != condition.sliderMove(temp, ev)){
+						temp.hander(temp.value);
+					}
+				},0);
+				return false;
+			});
+        });
+		
+		$(temp.slider).mouseup(function(ev){
+			$(this).off("mousemove");
+			if(condition.target&&condition.target.type=="Slider-BreakPoint")
+			{
+				condition.sliderUp(temp, ev)
 			}
-			clearTimeout(condition.dragID);
-			condition.dragID = setTimeout(function(){
-				var valueLast = temp.value;
-				if(valueLast != condition.sliderMove(temp, ev)){
-					temp.hander(temp.value);
-				};},0);
+			condition.target = null;
 			return false;
 		});
+	
 		
-		if(1 == condition.sliderArray.length){
+		
+		if(1 == condition.sliderArray.length)
+		{
 			$(document).mousemove(function(ev){
 				var dragObj = condition.target;
 				if( !dragObj){
@@ -481,7 +599,12 @@ Slider.prototype = {
 					};},0);
 				return false;
 			});
+			
 			$(document).mouseup(function(ev){
+				if(condition.target&&condition.target.type=="Slider-BreakPoint")
+				{
+					condition.sliderUp(temp, ev)
+				}
 				condition.target = null;
 				clearTimeout(condition.timeout);
 			});
