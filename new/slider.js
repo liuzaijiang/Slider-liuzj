@@ -6,7 +6,10 @@
 	var sliderString = '\
 			<div class="slider-content" id="<%=sliderId%>">\
 				<div class="slider-label"><%=sliderLabel%></div>\
-				<div class="slider-left-label"><%=sliderLeftLabel%></div>\
+				<div class="slider-left-label">\
+				    <div><%=sliderLeftLabel%></div>\
+				    <div><%=sliderLeftHint%></div>\
+				</div>\
 				<div class="slider-setting">\
 					<div class="slider-component">\
 						<div class="slider-wrap">\
@@ -17,7 +20,14 @@
 						</div>\
 					</div>\
 				</div>\
-				<div class="slider-left-label"><%=sliderRightLabel%></div>\
+				<div class="slider-left-label">\
+				    <div>\
+				       <%=sliderRightLabel%>\
+				    </div>\
+				    <div>\
+				    	<%=sliderRightHint%>\
+				    </div>\
+				</div>\
 			    <div class="slider-input-div">\
 					<input type="text" maxLength=<%=inputMaxLength%> class="slider-input" id="text<%=num%>" value=<%=initialValue%>></input>\
 					<label><%=suffix%></label>\
@@ -52,7 +62,8 @@
 		this.title = obj.title;
 		this.passValueName = obj.passValueName;
 		this.initialValue = obj.initialValue;
-		this.suffix = obj.suffix||"";
+		this.suffix = obj.suffix || "";
+		this.hint = obj.hint || ["", ""];
 		this.sliderNum = 0; //内部使用，用来标示当前滑动条是第几个
 		this.step = obj.step || 1;
 		this.dataArray = obj.dataArray || [];
@@ -69,7 +80,7 @@
 	Slider.prototype = {
 		/**
 		 * [初始化函数]
-		 * @return {[void]}
+		 * @return void
 		 */
 		init: function() {
 			g_contextObj[this.sliderId] = this;
@@ -91,13 +102,15 @@
 			var dom = sliderTemplate({
 				sliderId: this.sliderId,
 				sliderLabel: this.title,
-				sliderLeftLabel: this.range[0]+this.suffix,
-				sliderRightLabel: this.range[1]+this.suffix,
+				sliderLeftLabel: this.range[0] + this.suffix,
+				sliderRightLabel: this.range[1] + this.suffix,
+				sliderLeftHint: this.hint[0],
+				sliderRightHint: this.hint[1],
 				inputMaxLength: this.inputMaxLength,
 				num: this.sliderNum,
 				passValueName: this.passValueName,
 				initialValue: this.initialValue,
-				suffix:this.suffix
+				suffix: this.suffix
 			})
 			if (this.mountId == "body") {
 				$(this.mountId).append(dom);
@@ -128,7 +141,7 @@
 				}
 				$(document).mousemove(_.throttle(function(e) {
 					var x = e.pageX - sliderOffsetLeft;
-					var per = parseFloat(parseFloat(x / sliderWidth * 100).toFixed(4)) //移动百分比
+					var per = _floatCalFn(x / sliderWidth * 100, 4) //移动百分比
 
 					if (per < 0) {
 						per = 0;
@@ -137,7 +150,7 @@
 						per = 100;
 					}
 
-					_setValue(per, context);
+					_setValueFn(per, context);
 					_triggerFn(context.callback);
 					e.stopPropagation();
 
@@ -151,7 +164,7 @@
 					e.stopPropagation();
 
 				});
-				$("document").mouseleave(function(e) {
+				$(document).mouseleave(function(e) {
 					$(document).off("mousemove");
 					$(document).off("mouseup");
 					$(document).off("mouseleave");
@@ -168,7 +181,7 @@
 				}
 
 				var x = e.pageX - sliderOffsetLeft;
-				var per = parseFloat(parseFloat(x / sliderWidth * 100).toFixed(4))
+				var per = _floatCalFn(x / sliderWidth * 100, 4)
 				if (per < 0) {
 					per = 0;
 				}
@@ -176,7 +189,7 @@
 					per = 100;
 				}
 
-				_setValue(per, context);
+				_setValueFn(per, context);
 				_triggerFn(context.callback);
 				e.stopPropagation();
 			})
@@ -204,7 +217,8 @@
 			if (len == 0) {
 				var maxVal = context.range[1];
 				var minVal = context.range[0];
-				per = parseFloat(parseFloat((val - minVal) / (maxVal - minVal) * 100).toFixed(4));
+				//将整个滑动条
+				per = _floatCalFn((val - minVal) / (maxVal - minVal) * 100, 4)
 			} else {
 				_.forEach(context.dataArray, function(item, index) {
 					if (val == item) {
@@ -273,16 +287,19 @@
 	 * @param per当前滑动条移动距离占整个滑动条宽度的百分比
 	 * @param context为上下文
 	 */
-	var _setValue = function(per, context) {
+	var _setValueFn = function(per, context) {
 		var val;
 		var len = context.dataArray.length;
 		if (len == 0) {
 			var maxVal = context.range[1];
 			var minVal = context.range[0];
+			//把整个滑动条分为_setp段，每段的大小是context.setp
 			var _step = (maxVal - minVal) / context.step;
+			//求出当前移动距离占多少段，然后乘以每段大小，再加上偏移量（因为计算时以0为基础，实际上需要加上偏移，例如10--90），最后得出当前的具体数值
 			val = minVal + Math.floor(per / 100 * _step) * context.step;
 			val = per == 100 ? maxVal : val;
-		} else {
+		} else { //若为非连续分段函数
+			//根据出当前移动距离百分比求出数值在数组中的索引，并取出该值
 			val = context.dataArray[parseInt(per * (len - 1) / 100)];
 		}
 		$("#handle" + context.sliderNum).css("left", per + "%");
@@ -291,10 +308,19 @@
 	}
 
 	/**
-	 * [滑动条数值改变时的回调函数]
-	 * @param  callback 为执行函数
-	 * @return void
+	 * [浮点数计算处理]
+	 * @param val为需要处理的数据
+	 * @param num为保留几位小数
+	 * @return Number 返回一个带有num位小数的浮点数
 	 */
+	var _floatCalFn = function(val, num) {
+			return parseFloat(parseFloat(val).toFixed(num));
+		}
+		/**
+		 * [滑动条数值改变时的回调函数]
+		 * @param  callback 为执行函数
+		 * @return void
+		 */
 	var _triggerFn = _.debounce(function(callback) {
 		if (callback) {
 			callback();
@@ -319,7 +345,8 @@ $(function() {
 		passValueName: "passValueName1",
 		step: 10,
 		initialValue: 20,
-		suffix:'%'
+		suffix: '%',
+		hint: ["关闭", "打开"]
 	}
 
 	var obj2 = {
